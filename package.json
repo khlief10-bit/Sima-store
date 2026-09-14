@@ -1,0 +1,13 @@
+{
+  "name": "sima-store",
+  "version": "1.0.0",
+  "description": "Sima Store - Design Your Way",
+  "scripts": {
+    "dev": "npx serve .",
+    "build": "echo 'Build complete'",
+    "lint": "echo 'No linting configured for static HTML'"
+  },
+  "dependencies": {
+    "@vercel/analytics": "^1.1.1"
+  }
+}
