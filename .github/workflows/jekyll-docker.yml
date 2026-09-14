@@ -1,20 +1,807 @@
-name: Jekyll site CI
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>سِمة | Simah - صمّمها. خلّها سِمة.</title>
 
-on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+  <!-- Google Fonts: IBM Plex Sans Arabic -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-jobs:
-  build:
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            simah: {
+              dark: '#123C32',
+              secondary: '#1D5748',
+              cream: '#F7F1E5',
+              gold: '#C99B4B',
+              muted: '#71807B',
+            }
+          },
+          fontFamily: {
+            sans: ['"IBM Plex Sans Arabic"', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
 
-    runs-on: ubuntu-latest
+  <!-- React 18 & ReactDOM & Babel -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-    steps:
-    - uses: actions/checkout@v4
-    - name: Build the site in the jekyll/builder container
-      run: |
-        docker run \
-        -v ${{ github.workspace }}:/srv/jekyll -v ${{ github.workspace }}/_site:/srv/jekyll/_site \
-        jekyll/builder:latest /bin/bash -c "chmod -R 777 /srv/jekyll && jekyll build --future"
+  <!-- Lucide Icons Standalone CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    body {
+      font-family: 'IBM Plex Sans Arabic', sans-serif;
+      background-color: #F7F1E5;
+      color: #123C32;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .custom-range {
+      accent-color: #C99B4B;
+    }
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+</head>
+<body class="selection:bg-simah-gold selection:text-white">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    // مُكوّن الأيقونات التلقائي باستخدام مكتبة Lucide
+    const Icon = ({ name, size = 18, className = "" }) => {
+      const ref = useRef(null);
+      useEffect(() => {
+        if (window.lucide && ref.current) {
+          ref.current.innerHTML = `<i data-lucide="${name}" style="width:${size}px; height:${size}px;"></i>`;
+          window.lucide.createIcons({
+            root: ref.current,
+            nameAttr: 'data-lucide'
+          });
+        }
+      }, [name, size]);
+      return <span ref={ref} className={`inline-flex items-center justify-center ${className}`}></span>;
+    };
+
+    function SimahApp() {
+      const [activeTab, setActiveTab] = useState('designer');
+      const [isCartOpen, setIsCartOpen] = useState(false);
+      const [cart, setCart] = useState([]);
+
+      // خيارات التيشيرتات الواقعية
+      const shirtColors = [
+        { id: 'white', name: 'أبيض', hex: '#FFFFFF', mockup: 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=1000&q=80' },
+        { id: 'black', name: 'أسود', hex: '#1C1C1C', mockup: 'https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?auto=format&fit=crop&w=1000&q=80' },
+        { id: 'green', name: 'أخضر داكن', hex: '#123C32', mockup: 'https://images.unsplash.com/photo-1618354691373-d851c5c3a990?auto=format&fit=crop&w=1000&q=80' },
+        { id: 'beige', name: 'بيج ناعم', hex: '#EBE3D5', mockup: 'https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?auto=format&fit=crop&w=1000&q=80' }
+      ];
+
+      const [selectedColor, setSelectedColor] = useState(shirtColors[0]);
+      const [selectedSize, setSelectedSize] = useState('L');
+      const [quantity, setQuantity] = useState(1);
+
+      // أدوات التحكم بالرسمة
+      const [designImage, setDesignImage] = useState(null);
+      const [scale, setScale] = useState(1);
+      const [rotation, setRotation] = useState(0);
+      const [position, setPosition] = useState({ x: 0, y: -20 });
+      const [isDragging, setIsDragging] = useState(false);
+      const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+
+      // الذكاء الاصطناعي
+      const [aiPrompt, setAiPrompt] = useState('');
+      const [isGenerating, setIsGenerating] = useState(false);
+
+      // منتجات المتجر
+      const products = [
+        { id: 1, name: 'تيشيرت كلاسيك أبيض', price: 79, color: 'أبيض', img: shirtColors[0].mockup },
+        { id: 2, name: 'تيشيرت أسود فاخر', price: 79, color: 'أسود', img: shirtColors[1].mockup },
+        { id: 3, name: 'تيشيرت أخضر سِمة', price: 79, color: 'أخضر داكن', img: shirtColors[2].mockup },
+        { id: 4, name: 'تيشيرت بيج صحراوي', price: 79, color: 'بيج', img: shirtColors[3].mockup },
+      ];
+
+      // تصاميم المجتمع
+      const communityDesigns = [
+        { id: 101, title: 'روح الرياض', designer: 'فهد العتيبي', desc: 'تصميم مستوحى من نجد وعمران الرياض الحديث.', price: 129, img: 'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?auto=format&fit=crop&w=600&q=80' },
+        { id: 102, title: 'صحراء نجد', designer: 'نورة السليمان', desc: 'تجريد أنيق لرمال وكثبان الصحراء بلون ذهبي.', price: 119, img: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=600&q=80' },
+        { id: 103, title: 'قط سِمة', designer: 'سعود الشمري', desc: 'شعار بسيط ومينيمال مناسب للارتداء اليومي.', price: 109, img: 'https://images.unsplash.com/photo-1541701494587-cb58502866ab?auto=format&fit=crop&w=600&q=80' }
+      ];
+
+      // معالجة السحب والتحريك (الماوس وشاشات اللمس)
+      const handlePointerDown = (e) => {
+        if (!designImage) return;
+        setIsDragging(true);
+        const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+        const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+        setDragStart({ x: clientX - position.x, y: clientY - position.y });
+      };
+
+      const handlePointerMove = (e) => {
+        if (!isDragging) return;
+        const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+        const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+        setPosition({
+          x: clientX - dragStart.x,
+          y: clientY - dragStart.y
+        });
+      };
+
+      const handlePointerUp = () => setIsDragging(false);
+
+      // رفع صورة من الجهاز
+      const handleFileUpload = (e) => {
+        const file = e.target.files?.[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            setDesignImage(event.target?.result);
+            resetTransforms();
+          };
+          reader.readAsDataURL(file);
+        }
+      };
+
+      // محاكاة الذكاء الاصطناعي لتوليد صورة مفرغة
+      const handleGenerateAI = () => {
+        if (!aiPrompt.trim()) return;
+        setIsGenerating(true);
+        setTimeout(() => {
+          const graphics = [
+            `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 100 100"><circle cx="50" cy="50" r="42" fill="none" stroke="%23C99B4B" stroke-width="4"/><polygon points="50,15 63,38 88,38 68,54 75,78 50,64 25,78 32,54 12,38 37,38" fill="%23123C32"/></svg>`,
+            `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 100 100"><path d="M50 15 L85 80 L15 80 Z" fill="none" stroke="%23C99B4B" stroke-width="6"/><circle cx="50" cy="55" r="16" fill="%23123C32"/></svg>`
+          ];
+          setDesignImage(graphics[Math.floor(Math.random() * graphics.length)]);
+          resetTransforms();
+          setIsGenerating(false);
+        }, 1100);
+      };
+
+      const resetTransforms = () => {
+        setScale(1);
+        setRotation(0);
+        setPosition({ x: 0, y: -20 });
+      };
+
+      // اعتماد التصميم للسلة
+      const handleAddToCart = () => {
+        if (!designImage) return;
+        const newItem = {
+          id: Date.now(),
+          title: 'تيشيرت سِمة مخصص',
+          color: selectedColor.name,
+          size: selectedSize,
+          quantity: quantity,
+          price: 129 * quantity,
+          designImg: designImage,
+          shirtImg: selectedColor.mockup
+        };
+        setCart([...cart, newItem]);
+        setIsCartOpen(true);
+      };
+
+      const removeCartItem = (id) => setCart(cart.filter(item => item.id !== id));
+      const cartTotal = cart.reduce((sum, item) => sum + item.price, 0);
+
+      return (
+        <div className="min-h-screen flex flex-col font-sans">
+          
+          {/* 🧭 الهيدر الرئيسي */}
+          <header className="sticky top-0 z-40 bg-simah-dark text-simah-cream border-b border-simah-secondary shadow-md">
+            <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+              <div className="flex items-center gap-8">
+                <span 
+                  onClick={() => setActiveTab('home')}
+                  className="text-2xl font-bold tracking-widest text-simah-gold cursor-pointer select-none"
+                >
+                  سِـمَـة
+                </span>
+
+                <nav className="hidden md:flex items-center gap-6 text-sm font-medium">
+                  {[
+                    { id: 'home', label: 'الرئيسية' },
+                    { id: 'shop', label: 'المتجر' },
+                    { id: 'designer', label: 'المصمم' },
+                    { id: 'community', label: 'المجتمع' },
+                    { id: 'sell', label: 'بِع تصميمك' },
+                    { id: 'about', label: 'عن سِمة' },
+                  ].map(tab => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id)}
+                      className={`transition-colors py-1 ${
+                        activeTab === tab.id 
+                          ? 'text-simah-gold border-b-2 border-simah-gold font-semibold' 
+                          : 'text-simah-cream/80 hover:text-simah-cream'
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </nav>
+              </div>
+
+              <div>
+                <button 
+                  onClick={() => setIsCartOpen(true)}
+                  className="relative p-2.5 rounded-full bg-simah-secondary hover:bg-simah-gold hover:text-simah-dark transition text-simah-cream flex items-center justify-center"
+                >
+                  <Icon name="shopping-bag" size={20} />
+                  {cart.length > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-simah-gold text-simah-dark font-extrabold text-[10px] w-5 h-5 rounded-full flex items-center justify-center border-2 border-simah-dark">
+                      {cart.length}
+                    </span>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* شريط الموبايل القابل للتمرير */}
+            <div className="md:hidden flex overflow-x-auto no-scrollbar gap-2 px-4 py-2 border-t border-simah-secondary/50 text-xs whitespace-nowrap bg-simah-dark/95">
+              {[
+                { id: 'home', label: 'الرئيسية' },
+                { id: 'shop', label: 'المتجر' },
+                { id: 'designer', label: 'المصمم' },
+                { id: 'community', label: 'المجتمع' },
+                { id: 'sell', label: 'بِع تصميمك' },
+                { id: 'about', label: 'عن سِمة' },
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`px-3 py-1.5 rounded-full transition font-medium ${
+                    activeTab === tab.id 
+                      ? 'bg-simah-gold text-simah-dark font-bold' 
+                      : 'text-simah-cream/80 bg-simah-secondary/40'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </header>
+
+          {/* محتوى الصفحات */}
+          <main className="flex-1">
+
+            {/* 🏠 الصفحة الرئيسية */}
+            {activeTab === 'home' && (
+              <div className="max-w-7xl mx-auto px-4 py-12 md:py-24 flex flex-col md:flex-row items-center gap-12">
+                <div className="flex-1 text-center md:text-right space-y-6">
+                  <h1 className="text-4xl sm:text-6xl font-extrabold leading-[1.2] text-simah-dark">
+                    صمّمها.<br />
+                    <span className="text-simah-gold">خلّها سِمة.</span>
+                  </h1>
+                  <p className="text-simah-muted text-base sm:text-lg max-w-xl leading-relaxed">
+                    صمّم تيشيرتك بنفسك، شوف التصميم على المنتج قبل الطلب، وإذا أعجبك شاركه مع الناس وخله تصميم ينباع.
+                  </p>
+                  <div className="flex flex-col sm:flex-row gap-4 justify-center md:justify-start pt-2">
+                    <button 
+                      onClick={() => setActiveTab('designer')}
+                      className="px-8 py-3.5 bg-simah-dark text-simah-cream hover:bg-simah-secondary rounded-xl font-semibold shadow-lg transition"
+                    >
+                      ابدأ التصميم
+                    </button>
+                    <button 
+                      onClick={() => setActiveTab('shop')}
+                      className="px-8 py-3.5 border-2 border-simah-secondary/30 text-simah-dark hover:bg-simah-secondary/10 rounded-xl font-medium transition"
+                    >
+                      تصفح المتجر
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex-1 relative w-full aspect-square max-w-md bg-white rounded-3xl p-6 shadow-xl border border-simah-gold/20 flex items-center justify-center">
+                  <img 
+                    src={shirtColors[0].mockup} 
+                    alt="تيشيرت سِمة"
+                    className="w-full h-full object-contain rounded-2xl"
+                  />
+                  <div className="absolute -bottom-3 right-6 bg-simah-dark text-simah-gold px-4 py-2 rounded-xl text-xs font-semibold shadow border border-simah-gold/30">
+                    ✨ قطن طبيعي فاخر 100%
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 👕 صفحة المتجر */}
+            {activeTab === 'shop' && (
+              <div className="max-w-7xl mx-auto px-4 py-12">
+                <div className="mb-10 text-center md:text-right">
+                  <h2 className="text-3xl font-extrabold text-simah-dark">المتجر</h2>
+                  <p className="text-simah-muted text-sm mt-1">قطع جاهزة وتقدر تعدل عليها بطريقتك.</p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                  {products.map(item => (
+                    <div key={item.id} className="bg-white rounded-2xl p-4 shadow-sm hover:shadow-md transition border border-simah-cream/90 flex flex-col justify-between">
+                      <div className="aspect-square bg-simah-cream/40 rounded-xl overflow-hidden mb-4 flex items-center justify-center">
+                        <img src={item.img} alt={item.name} className="w-full h-full object-cover" />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-simah-dark text-base">{item.name}</h3>
+                        <p className="text-xs text-simah-muted mt-1">اللون: {item.color}</p>
+                        <div className="mt-3 text-lg font-bold text-simah-gold">{item.price} ر.س</div>
+                      </div>
+                      <div className="flex gap-2 mt-4">
+                        <button 
+                          onClick={() => {
+                            setCart([...cart, { 
+                              id: Date.now() + item.id, 
+                              title: item.name, 
+                              color: item.color, 
+                              size: 'L', 
+                              quantity: 1, 
+                              price: item.price, 
+                              shirtImg: item.img 
+                            }]);
+                            setIsCartOpen(true);
+                          }}
+                          className="flex-1 py-2 bg-simah-dark text-simah-cream rounded-xl text-xs font-semibold hover:bg-simah-secondary transition"
+                        >
+                          أضف للسلة
+                        </button>
+                        <button 
+                          onClick={() => {
+                            const targetColor = shirtColors.find(c => c.name === item.color) || shirtColors[0];
+                            setSelectedColor(targetColor);
+                            setActiveTab('designer');
+                          }}
+                          className="px-3 py-2 border border-simah-secondary/30 text-simah-dark rounded-xl text-xs hover:bg-simah-cream transition"
+                        >
+                          صمّم عليه
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ✨ صفحة المصمم */}
+            {activeTab === 'designer' && (
+              <div className="max-w-7xl mx-auto px-4 py-8">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                  
+                  {/* يسار الشاشة: المعاينة الحية للتيشيرت الموك اب */}
+                  <div className="lg:col-span-7 flex flex-col items-center order-1 lg:order-2">
+                    <div 
+                      className="relative w-full max-w-[460px] aspect-[4/5] bg-white rounded-3xl shadow-xl overflow-hidden border border-simah-gold/20 flex items-center justify-center select-none"
+                      onPointerMove={handlePointerMove}
+                      onPointerUp={handlePointerUp}
+                      onPointerLeave={handlePointerUp}
+                    >
+                      <img 
+                        src={selectedColor.mockup} 
+                        alt="تيشيرت المعاينة" 
+                        className="absolute inset-0 w-full h-full object-contain pointer-events-none"
+                      />
+
+                      {/* منطقة الطباعة الآمنة */}
+                      <div className="absolute w-[46%] h-[50%] top-[25%] border border-dashed border-simah-gold/40 rounded-lg pointer-events-none flex items-center justify-center">
+                        <span className="text-[9px] text-simah-muted/40 uppercase tracking-widest absolute top-1">منطقة الطباعة</span>
+                      </div>
+
+                      {/* التصميم التفاعلي */}
+                      {designImage && (
+                        <div 
+                          className="absolute cursor-move touch-none group"
+                          style={{
+                            transform: `translate(${position.x}px, ${position.y}px) rotate(${rotation}deg) scale(${scale})`,
+                            transformOrigin: 'center center',
+                          }}
+                          onPointerDown={handlePointerDown}
+                        >
+                          <div className="relative p-1 border border-transparent group-hover:border-simah-gold/80 rounded transition">
+                            <img 
+                              src={designImage} 
+                              alt="التصميم" 
+                              className="w-40 h-40 object-contain pointer-events-none select-none drop-shadow-sm" 
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {!designImage && (
+                        <div className="absolute text-center text-simah-muted text-xs p-4 bg-white/90 rounded-2xl shadow-sm border border-dashed border-simah-muted/30">
+                          👈 صمّم بالذكاء الاصطناعي أو ارفع صورة لتظهر هنا مباشرة
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="mt-4 flex items-center gap-6 text-xs text-simah-muted">
+                      <span className="flex items-center gap-1 font-medium"><Icon name="shield-check" size={14} className="text-simah-gold" /> جودة طباعة DTG فائقة الدقة</span>
+                      <span>سحب بإصبع واحد للتحريك على الجوال</span>
+                    </div>
+                  </div>
+
+                  {/* يمين الشاشة: لوحة التحكم */}
+                  <div className="lg:col-span-5 space-y-6 order-2 lg:order-1">
+                    
+                    {/* الذكاء الاصطناعي */}
+                    <div className="bg-white rounded-2xl p-5 shadow-sm border border-simah-secondary/10 space-y-3">
+                      <div className="flex items-center gap-2 text-simah-dark font-bold text-sm">
+                        <Icon name="sparkles" size={18} className="text-simah-gold" />
+                        <span>اصنع التصميم بالذكاء الاصطناعي</span>
+                      </div>
+                      <textarea
+                        rows="3"
+                        value={aiPrompt}
+                        onChange={(e) => setAiPrompt(e.target.value)}
+                        placeholder="نمر عربي فاخر بالأسود والذهبي، مستوحى من الرياض، بأسلوب عصري، بدون خلفية، مناسب للطباعة على تيشيرت."
+                        className="w-full text-xs p-3 rounded-xl border border-simah-secondary/20 focus:border-simah-gold focus:outline-none transition resize-none bg-simah-cream/30 text-simah-dark"
+                      ></textarea>
+                      <button
+                        onClick={handleGenerateAI}
+                        disabled={isGenerating || !aiPrompt.trim()}
+                        className="w-full py-3 bg-simah-dark text-simah-gold font-bold text-xs rounded-xl hover:bg-simah-secondary transition flex items-center justify-center gap-2 disabled:opacity-50"
+                      >
+                        {isGenerating ? 'جارِ إنشاء الرسمة...' : '✦ صمّم بالذكاء الاصطناعي'}
+                      </button>
+                    </div>
+
+                    {/* رفع تصميم */}
+                    <div className="bg-white rounded-2xl p-5 shadow-sm border border-simah-secondary/10 space-y-3">
+                      <span className="text-xs font-bold text-simah-dark block">أو ارفع تصميم من جهازك</span>
+                      <label className="border-2 border-dashed border-simah-secondary/30 rounded-xl p-4 flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-simah-gold hover:bg-simah-cream/20 transition">
+                        <Icon name="upload" size={20} className="text-simah-gold" />
+                        <span className="text-xs text-simah-muted">صيغ PNG, JPG, WEBP مفرغة الخلفية</span>
+                        <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
+                      </label>
+                    </div>
+
+                    {/* تغيير لون التيشيرت والمقاس */}
+                    <div className="bg-white rounded-2xl p-5 shadow-sm border border-simah-secondary/10 space-y-4">
+                      <div>
+                        <span className="text-xs font-bold text-simah-dark block mb-2">تغيير لون التيشيرت</span>
+                        <div className="flex gap-3">
+                          {shirtColors.map(color => (
+                            <button
+                              key={color.id}
+                              onClick={() => setSelectedColor(color)}
+                              className={`w-9 h-9 rounded-full border-2 transition flex items-center justify-center ${
+                                selectedColor.id === color.id ? 'border-simah-gold scale-110 shadow-sm ring-2 ring-simah-gold/30' : 'border-gray-300'
+                              }`}
+                              style={{ backgroundColor: color.hex }}
+                              title={color.name}
+                            ></button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div>
+                        <span className="text-xs font-bold text-simah-dark block mb-2">المقاس</span>
+                        <div className="flex gap-2">
+                          {['S', 'M', 'L', 'XL', '2XL'].map(size => (
+                            <button
+                              key={size}
+                              onClick={() => setSelectedSize(size)}
+                              className={`flex-1 py-1.5 rounded-xl text-xs font-semibold border transition ${
+                                selectedSize === size 
+                                  ? 'bg-simah-dark text-simah-cream border-simah-dark' 
+                                  : 'border-simah-secondary/20 text-simah-dark hover:bg-simah-cream/50'
+                              }`}
+                            >
+                              {size}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div>
+                        <span className="text-xs font-bold text-simah-dark block mb-2">الكمية</span>
+                        <div className="flex items-center gap-3">
+                          <button 
+                            onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                            className="w-8 h-8 rounded-lg bg-simah-cream border border-simah-secondary/20 flex items-center justify-center font-bold"
+                          >
+                            -
+                          </button>
+                          <span className="text-sm font-bold w-6 text-center">{quantity}</span>
+                          <button 
+                            onClick={() => setQuantity(quantity + 1)}
+                            className="w-8 h-8 rounded-lg bg-simah-cream border border-simah-secondary/20 flex items-center justify-center font-bold"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* أدوات التحجيم والدوران والأزرار السريعة */}
+                    <div className="bg-white rounded-2xl p-5 shadow-sm border border-simah-secondary/10 space-y-4">
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-xs text-simah-dark">
+                          <span>حجم التصميم (50% إلى 180%)</span>
+                          <span className="font-mono">{Math.round(scale * 100)}%</span>
+                        </div>
+                        <input 
+                          type="range" 
+                          min="0.5" 
+                          max="1.8" 
+                          step="0.05"
+                          value={scale} 
+                          onChange={(e) => setScale(parseFloat(e.target.value))}
+                          className="w-full custom-range"
+                          disabled={!designImage}
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-xs text-simah-dark">
+                          <span>الدوران (-180° إلى 180°)</span>
+                          <span className="font-mono">{rotation}°</span>
+                        </div>
+                        <input 
+                          type="range" 
+                          min="-180" 
+                          max="180" 
+                          step="5"
+                          value={rotation} 
+                          onChange={(e) => setRotation(parseInt(e.target.value))}
+                          className="w-full custom-range"
+                          disabled={!designImage}
+                        />
+                      </div>
+
+                      {/* أزرار التحكم السريع */}
+                      <div className="grid grid-cols-4 gap-2 pt-2">
+                        <button 
+                          onClick={() => setPosition(p => ({ ...p, y: p.y - 12 }))} 
+                          disabled={!designImage}
+                          className="py-2 bg-simah-cream text-simah-dark rounded-xl text-xs font-semibold hover:bg-simah-secondary/10 flex items-center justify-center gap-1"
+                        >
+                          <Icon name="arrow-up" size={14} /> فوق
+                        </button>
+                        <button 
+                          onClick={() => setPosition(p => ({ ...p, y: p.y + 12 }))} 
+                          disabled={!designImage}
+                          className="py-2 bg-simah-cream text-simah-dark rounded-xl text-xs font-semibold hover:bg-simah-secondary/10 flex items-center justify-center gap-1"
+                        >
+                          <Icon name="arrow-down" size={14} /> تحت
+                        </button>
+                        <button 
+                          onClick={() => setPosition({ x: 0, y: -20 })} 
+                          disabled={!designImage}
+                          className="py-2 bg-simah-cream text-simah-dark rounded-xl text-xs font-semibold hover:bg-simah-secondary/10 flex items-center justify-center gap-1"
+                        >
+                          <Icon name="crosshair" size={14} /> توسيط
+                        </button>
+                        <button 
+                          onClick={resetTransforms} 
+                          disabled={!designImage}
+                          className="py-2 bg-simah-cream text-simah-dark rounded-xl text-xs font-semibold hover:bg-simah-secondary/10 flex items-center justify-center gap-1"
+                        >
+                          <Icon name="rotate-ccw" size={14} /> إعادة
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* اعتماد التصميم */}
+                    <button
+                      onClick={handleAddToCart}
+                      disabled={!designImage}
+                      className="w-full py-4 bg-simah-gold hover:bg-[#b5893d] text-simah-dark font-bold text-sm rounded-2xl shadow-xl transition disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      <Icon name="check" size={18} /> اعتماد التصميم وإضافته للسلة ({129 * quantity} ر.س)
+                    </button>
+                  </div>
+
+                </div>
+              </div>
+            )}
+
+            {/* 🌟 مجتمع سِمة */}
+            {activeTab === 'community' && (
+              <div className="max-w-7xl mx-auto px-4 py-12">
+                <div className="mb-10 text-center md:text-right">
+                  <h2 className="text-3xl font-extrabold text-simah-dark">مجتمع سِمة</h2>
+                  <p className="text-simah-muted text-sm mt-1">تصفح تصاميم المبدعين، اطلبها فوراً أو عدلها داخل المصمم.</p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {communityDesigns.map(item => (
+                    <div key={item.id} className="bg-white rounded-2xl p-4 shadow-sm border border-simah-cream/90 flex flex-col justify-between">
+                      <div>
+                        <div className="aspect-square bg-simah-cream/30 rounded-xl overflow-hidden mb-3">
+                          <img src={item.img} alt={item.title} className="w-full h-full object-cover" />
+                        </div>
+                        <h3 className="font-bold text-simah-dark text-base">{item.title}</h3>
+                        <p className="text-xs text-simah-gold font-semibold mt-0.5">المصمم: {item.designer}</p>
+                        <p className="text-xs text-simah-muted mt-2">{item.desc}</p>
+                        <div className="mt-3 text-lg font-bold text-simah-dark">{item.price} ر.س</div>
+                      </div>
+                      <div className="flex gap-2 mt-4">
+                        <button 
+                          onClick={() => {
+                            setCart([...cart, { 
+                              id: Date.now() + item.id, 
+                              title: item.title, 
+                              color: 'أسود', 
+                              size: 'L', 
+                              quantity: 1, 
+                              price: item.price, 
+                              shirtImg: shirtColors[1].mockup, 
+                              designImg: item.img 
+                            }]);
+                            setIsCartOpen(true);
+                          }}
+                          className="flex-1 py-2 bg-simah-dark text-simah-cream rounded-xl text-xs font-semibold hover:bg-simah-secondary transition"
+                        >
+                          شراء
+                        </button>
+                        <button 
+                          onClick={() => {
+                            setDesignImage(item.img);
+                            setActiveTab('designer');
+                          }}
+                          className="px-3 py-2 border border-simah-secondary/30 text-simah-dark rounded-xl text-xs hover:bg-simah-cream transition"
+                        >
+                          استخدام التصميم
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 💰 بِع تصميمك */}
+            {activeTab === 'sell' && (
+              <div className="max-w-3xl mx-auto px-4 py-16 text-center space-y-8">
+                <div className="w-16 h-16 bg-simah-gold/20 text-simah-gold rounded-2xl flex items-center justify-center mx-auto">
+                  <Icon name="dollar-sign" size={32} />
+                </div>
+                <h2 className="text-3xl sm:text-4xl font-extrabold text-simah-dark">صمّم واربح</h2>
+                <p className="text-simah-muted text-base leading-relaxed">
+                  عندك تصميم؟ ارفعه لسِمة. نراجع التصميم، وبعد الموافقة يظهر في المجتمع. وإذا انباع التصميم تحصل على نسبتك من المبيعات.
+                </p>
+                <div className="bg-white p-6 rounded-2xl border border-simah-secondary/10 shadow-sm text-right space-y-3 max-w-lg mx-auto">
+                  <div className="font-bold text-sm text-simah-dark">خطوات المصمم:</div>
+                  <p className="text-xs text-simah-muted">رفع التصميم ← مراجعة سِمة ← قبول ← نشر ← مبيعات ← أرباح.</p>
+                </div>
+                <button className="px-8 py-3.5 bg-simah-dark text-simah-gold font-bold text-sm rounded-xl shadow hover:bg-simah-secondary transition">
+                  ابدأ رفع تصميمك
+                </button>
+              </div>
+            )}
+
+            {/* ℹ️ عن سِمة */}
+            {activeTab === 'about' && (
+              <div className="max-w-5xl mx-auto px-4 py-16 space-y-12">
+                <div className="text-center space-y-3">
+                  <h2 className="text-3xl font-extrabold text-simah-dark">عن سِمة</h2>
+                  <p className="text-simah-muted text-sm max-w-xl mx-auto">
+                    منصة تجمع بين متجر أزياء متكامل، استوديو تصميم تفاعلي، ومجتمع حي للمصممين في المملكة العربية السعودية.
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="bg-white p-6 rounded-2xl border border-simah-secondary/10 text-center space-y-3 shadow-sm">
+                    <div className="w-12 h-12 bg-simah-cream text-simah-dark rounded-xl flex items-center justify-center mx-auto">
+                      <Icon name="palette" size={22} />
+                    </div>
+                    <h3 className="font-bold text-simah-dark">صمّم</h3>
+                    <p className="text-xs text-simah-muted leading-relaxed">اصنع فكرتك بالذكاء الاصطناعي أو ارفع تصميمك الخاص.</p>
+                  </div>
+                  <div className="bg-white p-6 rounded-2xl border border-simah-secondary/10 text-center space-y-3 shadow-sm">
+                    <div className="w-12 h-12 bg-simah-cream text-simah-dark rounded-xl flex items-center justify-center mx-auto">
+                      <Icon name="shield-check" size={22} />
+                    </div>
+                    <h3 className="font-bold text-simah-dark">شاهد قبل الطلب</h3>
+                    <p className="text-xs text-simah-muted leading-relaxed">شاهد تصميمك على المنتج وعدّل حجمه ومكانه بدقة تامة.</p>
+                  </div>
+                  <div className="bg-white p-6 rounded-2xl border border-simah-secondary/10 text-center space-y-3 shadow-sm">
+                    <div className="w-12 h-12 bg-simah-cream text-simah-dark rounded-xl flex items-center justify-center mx-auto">
+                      <Icon name="users" size={22} />
+                    </div>
+                    <h3 className="font-bold text-simah-dark">شارك واربح</h3>
+                    <p className="text-xs text-simah-muted leading-relaxed">انشر تصميمك وخله متاحاً للشراء واحصل على عمولتك المباشرة.</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+          </main>
+
+          {/* 🛒 السلة الجانبية */}
+          {isCartOpen && (
+            <div className="fixed inset-0 z-50 overflow-hidden bg-black/50 backdrop-blur-xs flex justify-end">
+              <div className="w-full max-w-md bg-white h-full shadow-2xl flex flex-col justify-between p-6">
+                
+                <div className="flex items-center justify-between border-b pb-4">
+                  <div className="flex items-center gap-2">
+                    <Icon name="shopping-bag" size={20} className="text-simah-dark" />
+                    <h3 className="font-bold text-simah-dark text-lg">سلة المشتريات</h3>
+                  </div>
+                  <button onClick={() => setIsCartOpen(false)} className="text-simah-muted hover:text-simah-dark p-1">
+                    <Icon name="x" size={20} />
+                  </button>
+                </div>
+
+                <div className="flex-1 overflow-y-auto py-4 space-y-4">
+                  {cart.length === 0 ? (
+                    <div className="text-center py-24 text-simah-muted text-sm">
+                      السلة فارغة. ابدأ بابتكار تصميمك الآن!
+                    </div>
+                  ) : (
+                    cart.map(item => (
+                      <div key={item.id} className="flex gap-4 p-3.5 bg-simah-cream/40 rounded-2xl border border-simah-secondary/10 items-center">
+                        <div className="relative w-16 h-16 bg-white rounded-xl overflow-hidden shrink-0 border border-gray-100">
+                          <img src={item.shirtImg} alt="" className="w-full h-full object-cover" />
+                          {item.designImg && (
+                            <img src={item.designImg} alt="" className="absolute inset-0 w-8 h-8 m-auto object-contain" />
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="text-xs font-bold text-simah-dark">{item.title}</h4>
+                          <p className="text-[11px] text-simah-muted mt-0.5">
+                            {item.color} • {item.size} • ×{item.quantity}
+                          </p>
+                          <div className="text-xs font-bold text-simah-gold mt-1.5">{item.price} ر.س</div>
+                        </div>
+                        <button 
+                          onClick={() => removeCartItem(item.id)} 
+                          className="text-red-500 hover:text-red-700 p-2"
+                        >
+                          <Icon name="trash-2" size={16} />
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                {cart.length > 0 && (
+                  <div className="border-t pt-4 space-y-4">
+                    <div className="flex justify-between font-bold text-simah-dark text-base">
+                      <span>الإجمالي:</span>
+                      <span className="text-simah-gold font-extrabold">{cartTotal} ر.س</span>
+                    </div>
+                    <button 
+                      onClick={() => alert('جاري نقلك لبوابة Paylink المعتمدة لدفع ' + cartTotal + ' ر.س')}
+                      className="w-full py-4 bg-simah-dark text-simah-cream rounded-xl font-bold text-sm hover:bg-simah-secondary transition shadow-md"
+                    >
+                      الانتقال للدفع
+                    </button>
+                  </div>
+                )}
+
+              </div>
+            </div>
+          )}
+
+          {/* ⚓ الفوتر */}
+          <footer className="bg-simah-dark text-simah-cream/70 text-xs py-8 border-t border-simah-secondary/30 mt-auto">
+            <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-4">
+              <p>© 2026 سِمة (Simah). هوية سعودية عصرية - جميع الحقوق محفوظة.</p>
+              <div className="flex gap-4 text-simah-gold text-xs">
+                <span>دفع آمن عبر Paylink</span>
+                <span>خامات قطنية 100%</span>
+                <span>شحن سريع لجميع مناطق المملكة</span>
+              </div>
+            </div>
+          </footer>
+
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<SimahApp />);
+  </script>
+</body>
+</html>
